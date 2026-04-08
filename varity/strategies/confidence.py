@@ -23,22 +23,38 @@ _CROSS_CHECK_WEIGHT = 0.20
 class ConfidenceAggregator:
     """Computes per-claim confidence scores and the Verdict Stability Score (VSS).
 
-    VSS measures how stable a claim's verdict was across recursive verification
-    depths.  A claim that flips verdict at every depth gets VSS=0.0; one that
-    never flips gets VSS=1.0.
+    Dual-signal flagging
+    --------------------
+    A claim is flagged when EITHER signal triggers:
 
-    High flip_count → unstable → hallucination signal.
-    Low flip_count  → stable  → likely grounded.
+    1. ``confidence < confidence_threshold``
+       Catches claims the LLM consistently rates as wrong/uncertain regardless
+       of how stable that verdict is.  Handles "confidently wrong" claims where
+       the model never wavers but is still incorrect.
+
+    2. ``vss < vss_threshold``
+       Catches claims the LLM is *unstable* about — verdict flips across
+       recursive depths signal genuine uncertainty even if the final confidence
+       is moderate.
+
+    Using both independently eliminates the blind spot of relying on either
+    signal alone.
     """
 
-    def __init__(self, confidence_threshold: float = 0.5) -> None:
+    def __init__(
+        self,
+        confidence_threshold: float = 0.5,
+        vss_threshold: float = 0.5,
+    ) -> None:
         """Initialise the aggregator.
 
         Args:
-            confidence_threshold: Claims with confidence below this threshold
-                are flagged.
+            confidence_threshold: Claims with confidence below this are flagged.
+            vss_threshold: Claims with VSS below this are flagged (independently
+                of confidence).
         """
-        self._threshold = confidence_threshold
+        self._conf_threshold = confidence_threshold
+        self._vss_threshold = vss_threshold
 
     def aggregate(
         self,
@@ -56,7 +72,8 @@ class ConfidenceAggregator:
 
         Returns:
             Tuple of:
-            - Updated list of claims (with confidence, vss_score, flip_count, flagged set).
+            - Updated list of claims (with confidence, vss_score, flip_count,
+              flagged, and flag_reason set).
             - overall_confidence (float in [0, 1]).
             - vss_score (float in [0, 1], average across claims).
         """
@@ -98,7 +115,11 @@ class ConfidenceAggregator:
         steps: list[VerificationStep],
         cross: VerificationStep | None,
     ) -> Claim:
-        """Compute confidence and VSS for a single claim.
+        """Compute confidence, VSS, and dual-signal flag for a single claim.
+
+        Flagging logic:
+            flagged = (confidence < conf_threshold) OR (vss < vss_threshold)
+            flag_reason = "confidence" | "vss" | "both" | "no_data"
 
         Args:
             claim: The claim to score.
@@ -106,23 +127,22 @@ class ConfidenceAggregator:
             cross: Optional cross-check step (depth=-1).
 
         Returns:
-            Claim with updated confidence, vss_score, flip_count, and flagged.
+            Claim with updated confidence, vss_score, flip_count, flagged,
+            and verification_notes.
         """
         if not steps:
-            # No verification data — mark uncertain, low confidence
             return claim.model_copy(
                 update={
                     "confidence": 0.35,
                     "vss_score": 0.5,
                     "flip_count": 0,
                     "flagged": True,
-                    "verification_notes": "No verification data available.",
+                    "verification_notes": "no_data: no verification steps available.",
                 }
             )
 
         # Bayesian-style confidence update
         confidence = _VERDICT_PRIOR[steps[0].verdict]
-
         prev_verdict = steps[0].verdict
         flip_count = 0
 
@@ -149,11 +169,32 @@ class ConfidenceAggregator:
         # Penalise confidence proportionally to instability
         confidence = _clamp(confidence * (0.5 + 0.5 * vss))
 
-        flagged = confidence < self._threshold
+        # ------------------------------------------------------------------
+        # Dual-signal flagging
+        # ------------------------------------------------------------------
+        conf_triggered = confidence < self._conf_threshold
+        vss_triggered = vss < self._vss_threshold
 
-        notes_parts = [f"depth={len(steps) - 1}", f"flips={flip_count}", f"vss={vss:.2f}"]
+        flagged = conf_triggered or vss_triggered
+
+        if conf_triggered and vss_triggered:
+            flag_reason = "both"
+        elif conf_triggered:
+            flag_reason = "confidence"
+        elif vss_triggered:
+            flag_reason = "vss"
+        else:
+            flag_reason = ""
+
+        notes_parts = [
+            f"depth={len(steps) - 1}",
+            f"flips={flip_count}",
+            f"vss={vss:.2f}",
+        ]
         if cross:
             notes_parts.append(f"cross={cross.verdict}")
+        if flag_reason:
+            notes_parts.append(f"flag={flag_reason}")
 
         return claim.model_copy(
             update={

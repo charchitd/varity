@@ -121,12 +121,21 @@ with st.sidebar:
     )
 
     threshold = st.slider(
-        "Flag Threshold",
+        "Confidence Threshold",
         min_value=0.1,
         max_value=0.9,
         value=0.5,
         step=0.05,
         help="Claims with confidence below this value are flagged.",
+    )
+
+    vss_threshold = st.slider(
+        "VSS Threshold",
+        min_value=0.1,
+        max_value=0.9,
+        value=0.5,
+        step=0.05,
+        help="Claims with VSS (Verdict Stability Score) below this value are flagged, independently of confidence. Low VSS means the LLM kept changing its verdict — a hallucination signal.",
     )
 
     max_claims = st.slider(
@@ -266,6 +275,7 @@ if run_clicked and ready:
             depth=depth,
             strategy=strategy,
             confidence_threshold=threshold,
+            vss_threshold=vss_threshold,
             max_claims=max_claims,
         )
         varity = Varity(provider=provider, config=config)
@@ -317,7 +327,7 @@ if run_clicked and ready:
             st.markdown("### 📋 Claims")
             st.markdown(
                 "Each row is one atomic claim extracted from the response. "
-                "**Flagged** claims have confidence below your threshold."
+                "**Flagged** claims have confidence below your threshold OR VSS below your VSS threshold."
             )
 
             for i, claim in enumerate(result.claims, 1):

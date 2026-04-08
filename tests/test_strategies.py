@@ -287,3 +287,58 @@ def test_aggregator_cross_check_included() -> None:
     updated, _, _ = agg.aggregate([claim], self_steps, cross_check_steps=cross)
     # Should not flip — cross agrees
     assert updated[0].confidence > 0.5
+
+
+
+# ---------------------------------------------------------------------------
+# Dual-signal flagging tests
+# ---------------------------------------------------------------------------
+
+def test_dual_signal_confidence_only_flags() -> None:
+    """Claim with low confidence but high VSS is flagged (confidence signal)."""
+    agg = ConfidenceAggregator(confidence_threshold=0.5, vss_threshold=0.3)
+    claim = _claim("The sky is green.")
+    # All contradicted → stable (high VSS), but low confidence
+    steps = _steps("The sky is green.", ["contradicted", "contradicted"])
+    updated, _, _ = agg.aggregate([claim], steps)
+    assert updated[0].flagged is True
+    assert "confidence" in updated[0].verification_notes
+
+
+def test_dual_signal_vss_only_flags() -> None:
+    """Claim with acceptable confidence but low VSS is flagged (vss signal)."""
+    agg = ConfidenceAggregator(confidence_threshold=0.1, vss_threshold=0.9)
+    claim = _claim("Some claim.")
+    # Flipping → low VSS
+    steps = _steps("Some claim.", ["supported", "contradicted"])
+    updated, _, _ = agg.aggregate([claim], steps)
+    assert updated[0].flagged is True
+    assert "vss" in updated[0].verification_notes
+
+
+def test_dual_signal_both_flags() -> None:
+    """Claim triggering both signals gets flag_reason='both'."""
+    agg = ConfidenceAggregator(confidence_threshold=0.9, vss_threshold=0.9)
+    claim = _claim("Uncertain claim.")
+    steps = _steps("Uncertain claim.", ["uncertain", "contradicted"])
+    updated, _, _ = agg.aggregate([claim], steps)
+    assert updated[0].flagged is True
+    assert "both" in updated[0].verification_notes
+
+
+def test_dual_signal_passes_when_both_ok() -> None:
+    """Claim with high confidence and high VSS is NOT flagged."""
+    agg = ConfidenceAggregator(confidence_threshold=0.5, vss_threshold=0.5)
+    claim = _claim("Paris is the capital of France.")
+    steps = _steps("Paris is the capital of France.", ["supported", "supported"])
+    updated, _, _ = agg.aggregate([claim], steps)
+    assert updated[0].flagged is False
+
+
+def test_dual_signal_flag_reason_in_notes() -> None:
+    """flag= prefix appears in verification_notes when flagged."""
+    agg = ConfidenceAggregator(confidence_threshold=0.5, vss_threshold=0.5)
+    claim = _claim("Bad claim.")
+    steps = _steps("Bad claim.", ["contradicted", "contradicted"])
+    updated, _, _ = agg.aggregate([claim], steps)
+    assert "flag=" in updated[0].verification_notes

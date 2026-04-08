@@ -50,6 +50,7 @@ class VarityConfig(BaseModel):
     depth: int = Field(default=2, ge=0, le=5)
     strategy: Literal["quick", "full", "paranoid"] = "full"
     confidence_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    vss_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     max_claims: int = Field(default=20, ge=1, le=100)
     timeout: int = Field(default=30, ge=5, le=300)
 

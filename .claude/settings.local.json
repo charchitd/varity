@@ -16,7 +16,12 @@
       "Bash(npm run:*)",
       "Bash(npm test:*)",
       "Bash(npm pack:*)",
-      "Bash(python -m json.tool)"
+      "Bash(python -m json.tool)",
+      "Bash(python -c ':*)",
+      "Bash(pip show:*)",
+      "Bash(python -m streamlit --version)",
+      "Bash(python -m streamlit run demo/app.py --server.headless true --server.port 8501)",
+      "Bash(python -m pytest tests/ -v --tb=short -q)"
     ]
   }
 }

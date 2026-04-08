@@ -100,6 +100,38 @@ varity check "Einstein won the Nobel Prize for Relativity in 1921." --provider a
 varity batch ingest_dataset.jsonl output_results.jsonl --provider openai
 ```
 
+### CI/CD Integration
+
+Varity is designed to be easily integrated into CI/CD pipelines to enforce hallucination checks on generated outputs before deployment.
+
+#### Example: GitHub Actions
+
+Create a `.github/workflows/varity-check.yml` file:
+
+```yaml
+name: Varity Hallucination Check
+on: [push, pull_request]
+
+jobs:
+  varity_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install dependencies
+        run: pip install varity
+      - name: Run dynamic cycle checks
+        env:
+          VARITY_PROVIDER: ${{ secrets.VARITY_PROVIDER }}
+          VARITY_API_KEY: ${{ secrets.VARITY_API_KEY }}
+        run: |
+          # Example: Run 5 evaluation cycles on your test script
+          python test101.py --cycles 5
+```
+
 ## Core Architecture
 
 Varity governs a strict 5-stage deterministic evaluation flow:

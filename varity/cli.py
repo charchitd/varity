@@ -152,6 +152,7 @@ async def _run_check(
     model: Optional[str],
     depth: int,
     threshold: float,
+    vss_threshold: float,
     json_out: bool,
 ) -> int:
     from varity import Varity, VarityConfig
@@ -162,7 +163,7 @@ async def _run_check(
         kwargs["model"] = model
 
     provider = get_provider(provider_name, api_key=api_key, **kwargs)
-    config = VarityConfig(depth=depth, confidence_threshold=threshold)
+    config = VarityConfig(depth=depth, confidence_threshold=threshold, vss_threshold=vss_threshold)
     varity = Varity(provider=provider, config=config)
 
     try:
@@ -187,6 +188,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
             model=getattr(args, "model", None),
             depth=args.depth,
             threshold=args.threshold,
+            vss_threshold=args.vss_threshold,
             json_out=args.json,
         )
     )
@@ -210,6 +212,7 @@ def _cmd_demo(args: argparse.Namespace) -> int:
                 model=None,
                 depth=2,
                 threshold=0.5,
+                vss_threshold=0.5,
                 json_out=False,
             )
         )
@@ -327,6 +330,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p_check.add_argument(
         "--threshold", type=float, default=0.5,
         help="Confidence threshold below which claims are flagged (default: 0.5)."
+    )
+    p_check.add_argument(
+        "--vss-threshold", type=float, default=0.5, dest="vss_threshold",
+        help="VSS threshold below which claims are flagged (default: 0.5)."
     )
     p_check.add_argument("--json", action="store_true", help="Output raw JSON.")
     p_check.set_defaults(func=_cmd_check)

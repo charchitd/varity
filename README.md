@@ -103,6 +103,38 @@ varity batch input.jsonl output.jsonl --provider openai
 varity demo
 ```
 
+### CI/CD Integration
+
+Varity is designed to be easily integrated into CI/CD pipelines to enforce hallucination checks on generated outputs before deployment.
+
+#### Example: GitHub Actions
+
+Create a `.github/workflows/varity-check.yml` file:
+
+```yaml
+name: Varity Hallucination Check
+on: [push, pull_request]
+
+jobs:
+  varity_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install dependencies
+        run: pip install varity
+      - name: Run dynamic cycle checks
+        env:
+          VARITY_PROVIDER: ${{ secrets.VARITY_PROVIDER }}
+          VARITY_API_KEY: ${{ secrets.VARITY_API_KEY }}
+        run: |
+          # Example: Run 5 evaluation cycles on your test script
+          python test101.py --cycles 5
+```
+
 ## How It Works
 
 Varity executes a deterministic five-stage pipeline:
@@ -150,6 +182,7 @@ flips on every pass approaches VSS = 0.0. Claims below the configured
 |---|---|---|---|
 | `depth` | `int` | `1` | Number of recursive self-verification passes (0 = single pass) |
 | `confidence_threshold` | `float` | `0.5` | Claims scoring below this are flagged |
+| `vss_threshold` | `float` | `0.5` | Claims with VSS below this are flagged (independently of confidence) |
 | `strategy` | `str` | `"standard"` | Verification strategy (`"quick"`, `"standard"`, `"thorough"`) |
 | `max_claims` | `int` | `20` | Maximum number of claims to extract per response |
 | `enable_correction` | `bool` | `True` | Whether to generate corrected text for flagged claims |

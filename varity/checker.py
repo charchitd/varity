@@ -63,6 +63,7 @@ class RecursiveChecker:
         self._cross_checker = CrossChecker(provider=provider)
         self._aggregator = ConfidenceAggregator(
             confidence_threshold=self._config.confidence_threshold,
+            vss_threshold=self._config.vss_threshold,
         )
 
     async def run(self, response: str) -> CheckResult:
