@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Varity | Recursive Self-Checking for LLMs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #0a0a0f;
+            --bg-card: #111118;
+            --bg-card-hover: #1a1a24;
+            --accent: #00e5ff;
+            --accent-glow: rgba(0, 229, 255, 0.15);
+            --hallucination: #ff3b5c;
+            --verified: #00ff88;
+            --uncertain: #ffaa00;
+            --text-main: #f0f0f5;
+            --text-dim: #9ba1a6;
+            --border-dim: rgba(255, 255, 255, 0.1);
+            
+            --font-body: 'Outfit', sans-serif;
+            --font-code: 'IBM Plex Mono', monospace;
+            --font-display: 'Instrument Serif', serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Subtle noise texture */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Fade-in Animation */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- 1. HERO --- */
+        .hero {
+            padding: 8rem 0 5rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .hero-glow {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            z-index: -1;
+            animation: pulse-glow 4s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-dim);
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            margin-bottom: 2rem;
+            color: var(--text-dim);
+            font-family: var(--font-code);
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(3rem, 8vw, 5rem);
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+        }
+        .hero h1 i {
+            color: var(--accent);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .stats-row {
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        /* --- 2. PIPELINE --- */
+        .pipeline-section {
+            padding: 5rem 0;
+        }
+
+        .split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            margin-bottom: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .split { grid-template-columns: 1fr; gap: 2rem; text-align: center; }
+        }
+
+        .problem h2, .solution h2 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: 400;
+        }
+
+        .problem h2 { color: var(--hallucination); }
+        .solution h2 { color: var(--verified); }
+        
+        .diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-dim);
+            overflow-x: auto;
+        }
+
+        .diagram-node {
+            text-align: center;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            position: relative;
+        }
+
+        .diagram-box {
+            background: var(--bg-base);
+            border: 1px solid var(--border-dim);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .diagram-arrow {
+            flex-grow: 1;
+            height: 2px;
+            background: var(--border-dim);
+            margin: 0 10px;
+            position: relative;
+            transform: translateY(-10px);
+        }
+
+        .diagram-arrow::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 0;
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: moveArrow 2s infinite linear;
+        }
+
+        @keyframes moveArrow {
+            0% { left: 0; opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+
+        /* --- 3. CODE EXAMPLE --- */
+        .code-section {
+            padding: 5rem 0;
+        }
+
+        .code-window {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-dim);
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .window-header {
+            display: flex;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border-dim);
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            cursor: pointer;
+            border-right: 1px solid var(--border-dim);
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            background: transparent;
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .code-content {
+            padding: 2rem;
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+            overflow-x: auto;
+            position: relative;
+            display: none;
+        }
+        .code-content.active { display: block; }
+
+        .copy-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--font-code);
+            font-size: 0.8rem;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* Syntax colors */
+        .kw { color: #c678dd; } /* keyword */
+        .fn { color: #61afef; } /* function */
+        .st { color: #98c379; } /* string */
+        .id { color: #e06c75; } /* identifier */
+        .cm { color: #5c6370; font-style: italic; } /* comment */
+        .op { color: #56b6c2; } /* operator */
+
+        /* --- 4. BYOK DEMO --- */
+        .demo-section {
+            padding: 5rem 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-dim);
+            border-bottom: 1px solid var(--border-dim);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+        }
+        @media (max-width: 768px) {
+            .demo-grid { grid-template-columns: 1fr; }
+        }
+
+        .demo-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        label {
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        textarea, input, select {
+            width: 100%;
+            background: var(--bg-base);
+            border: 1px solid var(--border-dim);
+            color: white;
+            font-family: var(--font-body);
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        textarea { resize: vertical; min-height: 120px; font-family: var(--font-body); }
+        textarea:focus, input:focus, select:focus { border-color: var(--accent); }
+
+        .key-note {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button.primary-btn {
+            background: var(--text-main);
+            color: var(--bg-base);
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-family: var(--font-code);
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            margin-top: 1rem;
+        }
+        button.primary-btn:hover { background: var(--accent); transform: translateY(-2px); }
+        button.primary-btn:disabled { background: var(--border-dim); color: var(--text-dim); cursor: not-allowed; transform: none; }
+
+        .demo-results {
+            background: var(--bg-base);
+            border: 1px solid var(--border-dim);
+            border-radius: 12px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
+        }
+
+        .results-placeholder {
+            margin: auto;
+            text-align: center;
+            color: var(--text-dim);
+            font-family: var(--font-code);
+        }
+
+        .claim-card {
+            background: var(--bg-card);
+            border-left: 4px solid var(--border-dim);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        .claim-card.verified { border-left-color: var(--verified); }
+        .claim-card.uncertain { border-left-color: var(--uncertain); }
+        .claim-card.hallucinated { border-left-color: var(--hallucination); }
+
+        .claim-meta {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-code);
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+        .meta-verified { color: var(--verified); }
+        .meta-uncertain { color: var(--uncertain); }
+        .meta-hallucinated { color: var(--hallucination); }
+
+        .loading-skeleton {
+            animation: pulse-op 1.5s infinite;
+        }
+        @keyframes pulse-op {
+            0% { opacity: 0.4; } 50% { opacity: 0.8; } 100% { opacity: 0.4; }
+        }
+
+        /* --- 5. CONFIDENCE BANDS --- */
+        .bands-section { padding: 5rem 0; text-align: center; }
+        .bands-section h3 { font-family: var(--font-display); font-size: 2.5rem; font-weight: 400; margin-bottom: 3rem; }
+        
+        .spectrum {
+            display: flex;
+            height: 40px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        .band { display: flex; align-items: center; justify-content: center; font-family: var(--font-code); font-size: 0.8rem; font-weight: 600; color: #000; }
+        .band-1 { flex: 3; background: var(--hallucination); }
+        .band-2 { flex: 2; background: var(--uncertain); }
+        .band-3 { flex: 2; background: #e0e022; }
+        .band-4 { flex: 2; background: #88ffbb; }
+        .band-5 { flex: 1; background: var(--verified); }
+
+        /* --- 6. WHY VARITY --- */
+        .features-section { padding: 5rem 0; }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+        @media (max-width: 768px) { .features-grid { grid-template-columns: 1fr; } }
+        
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-dim);
+            padding: 2rem;
+            border-radius: 12px;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+        .feature-card:hover { transform: translateY(-5px); border-color: var(--accent); }
+        .feature-card h4 { font-family: var(--font-code); font-size: 1.1rem; color: var(--accent); margin-bottom: 1rem; }
+        .feature-card p { color: var(--text-dim); font-size: 0.95rem; }
+
+        /* --- 7. INSTALL --- */
+        .install-section { padding: 5rem 0; text-align: center; }
+        .install-section h3 { font-family: var(--font-display); font-size: 2.5rem; font-weight: 400; margin-bottom: 2rem;}
+        
+        .install-grid {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .install-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-dim);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-family: var(--font-code);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+        }
+        .install-box.coming-soon { opacity: 0.5; pointer-events: none; }
+        .install-box i { color: var(--text-dim); cursor: pointer; transition: color 0.2s; }
+        .install-box i:hover { color: var(--accent); }
+
+        /* --- 8. FOOTER --- */
+        footer {
+            border-top: 1px solid var(--border-dim);
+            padding: 3rem 0;
+            text-align: center;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        footer a { color: var(--text-main); text-decoration: none; margin: 0 1rem; transition: color 0.2s; }
+        footer a:hover { color: var(--accent); }
+        .footer-note { margin-top: 2rem; opacity: 0.6; }
+
+    </style>
+</head>
+<body>
+
+    <!-- 1. HERO -->
+    <section class="hero container fade-up">
+        <div class="hero-glow"></div>
+        <div class="badge">v0.1.0 · Open Source · MIT</div>
+        <h1>Make LLMs check <i>their own</i> homework.</h1>
+        <p>Recursive self-verification that catches hallucinations before your users do.</p>
+        <div class="stats-row">
+            76 tests passing &middot; 5 strategies &middot; 3 providers &middot; $0 to run
+        </div>
+    </section>
+
+    <!-- 2. PROBLEM / SOLUTION -->
+    <section class="pipeline-section container fade-up">
+        <div class="split">
+            <div class="problem">
+                <h2>LLMs hallucinate.</h2>
+                <p>They generate highly plausible but factually incorrect statements with complete confidence.</p>
+            </div>
+            <div class="solution">
+                <h2>Varity makes them verify.</h2>
+                <p>We force the model into an isolated, recursive interrogation loop to detect mathematical instability in its own logic.</p>
+            </div>
+        </div>
+
+        <div class="diagram">
+            <div class="diagram-node">
+                <div class="diagram-box">Decompose</div>
+                <span>Extract Claims</span>
+            </div>
+            <div class="diagram-arrow"></div>
+            <div class="diagram-node">
+                <div class="diagram-box">Self-Verify</div>
+                <span>Depth-N Loop</span>
+            </div>
+            <div class="diagram-arrow"></div>
+            <div class="diagram-node">
+                <div class="diagram-box">Cross-Check</div>
+                <span>Independent Node</span>
+            </div>
+            <div class="diagram-arrow"></div>
+            <div class="diagram-node">
+                <div class="diagram-box">Score</div>
+                <span>Compute VSS</span>
+            </div>
+            <div class="diagram-arrow"></div>
+            <div class="diagram-node">
+                <div class="diagram-box" style="border-color: var(--verified);">Correct</div>
+                <span style="color: var(--verified);">Final Output</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. CODE EXAMPLE -->
+    <section class="code-section container fade-up">
+        <div class="code-window">
+            <div class="window-header">
+                <div class="tab active" onclick="switchTab('py')">Python</div>
+                <div class="tab" onclick="switchTab('js')">JavaScript</div>
+                <div class="tab" onclick="switchTab('cli')">CLI</div>
+            </div>
+            
+            <div id="tab-py" class="code-content active">
+                <button class="copy-btn" onclick="copyCode('code-py', this)">Copy</button>
+<pre id="code-py"><code><span class="kw">from</span> varity <span class="kw">import</span> Varity
+
+v = Varity(provider=<span class="st">"anthropic"</span>, api_key=<span class="st">"your-key"</span>)
+
+result = v.check(
+    prompt=<span class="st">"When was the Eiffel Tower built?"</span>,
+    response=<span class="st">"The Eiffel Tower was built in 1887."</span>
+)
+
+<span class="cm"># Shows the wrong date flagged via VSS flip detection</span>
+<span class="fn">print</span>(result.flagged_claims)  
+
+<span class="cm"># Auto-corrected string strictly constrained to verified facts</span>
+<span class="fn">print</span>(result.corrected_response)  <span class="cm"># "The Eiffel Tower was built in 1889."</span></code></pre>
+            </div>
+
+            <div id="tab-js" class="code-content">
+                <button class="copy-btn" onclick="copyCode('code-js', this)">Copy</button>
+<pre id="code-js"><code><span class="kw">import</span> { Varity } <span class="kw">from</span> <span class="st">"varity"</span>;
+
+<span class="kw">const</span> v = <span class="kw">new</span> Varity({ provider: <span class="st">"anthropic"</span>, apiKey: <span class="st">"your-key"</span> });
+
+<span class="kw">const</span> result = <span class="kw">await</span> v.check(prompt, response);
+
+<span class="fn">console</span>.log(result.flaggedClaims);</code></pre>
+            </div>
+
+            <div id="tab-cli" class="code-content">
+                <button class="copy-btn" onclick="copyCode('code-cli', this)">Copy</button>
+<pre id="code-cli"><code><span class="id">varity</span> check --prompt <span class="st">"..."</span> --response <span class="st">"..."</span> --provider anthropic --key sk-...</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. LIVE BYOK DEMO -->
+    <section class="demo-section fade-up">
+        <div class="container demo-grid">
+            <div class="demo-form">
+                <div>
+                    <label>LLM Response to verify</label>
+                    <textarea id="demo-input">The Great Wall of China is 13,170 miles long. It is unequivocally visible from space with the naked eye. Also, Python was created by Guido van Rossum.</textarea>
+                </div>
+                <div>
+                    <label>Provider</label>
+                    <select id="demo-provider">
+                        <option value="gemini">Google Gemini (gemini-2.0-flash)</option>
+                        <option value="anthropic">Anthropic (claude-3-5-sonnet)</option>
+                        <option value="openai">OpenAI (gpt-4o-mini)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>API Key (BYOK)</label>
+                    <input type="password" id="demo-key" placeholder="sk-..." />
+                    <div class="key-note">🔒 Your key stays in your browser. Never sent to any server.</div>
+                </div>
+                <button class="primary-btn" id="demo-btn" onclick="runDemo()">Check for Hallucinations &rarr;</button>
+            </div>
+            
+            <div class="demo-results" id="demo-results">
+                <div class="results-placeholder" id="placeholder">
+                    Inject key and execute pipeline to view Recursive VSS output.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. CONFIDENCE BANDS -->
+    <section class="bands-section container fade-up">
+        <h3>Verdict Stability Spectrum</h3>
+        <div class="spectrum">
+            <div class="band band-1">0.0 - 0.3 Hallucinated</div>
+            <div class="band band-2">0.3 - 0.5 Uncertain</div>
+            <div class="band band-3">0.5 - 0.7 Accurate</div>
+            <div class="band band-4">0.7 - 0.9 High</div>
+            <div class="band band-5">1.0</div>
+        </div>
+        <p style="color: var(--text-dim); font-size: 0.9rem;">
+            Claims that constantly flip verdicts across recursive depth interrogations fall cleanly to the left. Claims that resolutely maintain their boolean state aggregate to the right.
+        </p>
+    </section>
+
+    <!-- 6. FEATURES -->
+    <section class="features-section container fade-up">
+        <div class="features-grid">
+            <div class="feature-card">
+                <h4>Recursive Depth</h4>
+                <p>Goes much deeper than surface semantic checks. Varity actively forces the LLM to verify its own verification until stability is achieved.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Strict BYOK</h4>
+                <p>Your key, your cost, your control. Works natively natively with Claude, GPT, and Gemini API standard endpoints. No middle-man routers.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Zero Cost Footprint</h4>
+                <p>100% MIT Licensed. No proprietary SaaS servers to pay for. Running it against Gemini's free tier costs literally $0.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. INSTALL -->
+    <section class="install-section container fade-up">
+        <h3>Install the core</h3>
+        <div class="install-grid">
+            <div class="install-box">
+                <span id="cmd-pip">pip install varity</span>
+                <button class="copy-btn" style="position:static;" onclick="copyCode('cmd-pip', this)">Copy</button>
+            </div>
+            <div class="install-box">
+                <span id="cmd-npm">npm install varity</span>
+                <button class="copy-btn" style="position:static;" onclick="copyCode('cmd-npm', this)">Copy</button>
+            </div>
+            <div class="install-box coming-soon">
+                <span>brew install varity</span>
+                <span style="font-size: 0.7rem; color: var(--text-dim)">(Soon)</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 8. FOOTER -->
+    <footer>
+        <div>
+            <a href="https://github.com/charchitd/varity" target="_blank">GitHub</a>
+            <a href="https://pypi.org/project/varity" target="_blank">PyPI</a>
+            <a href="#" target="_blank">npm</a>
+        </div>
+        <div class="footer-note">
+            Built by Charchit &middot; MIT License &middot; Star on GitHub ⭐
+        </div>
+    </footer>
+
+    <!-- INTERACTIVITY SCRIPT -->
+    <script>
+        // 1. Smooth observer for fade-up animations
+        const observerOptions = { root: null, rootMargin: '0px', threshold: 0.1 };
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    obs.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+        // 2. Tabs logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.code-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+
+        // 3. Copy logic
+        function copyCode(elementId, btnElement) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btnElement.innerText;
+                btnElement.innerText = "Copied!";
+                setTimeout(() => btnElement.innerText = originalText, 2000);
+            });
+        }
+
+        // 4. Simulated BYOK Demo Pipeline
+        async function runDemo() {
+            const btn = document.getElementById('demo-btn');
+            const key = document.getElementById('demo-key').value;
+            const ui = document.getElementById('demo-results');
+
+            if (!key) {
+                alert("Please drop a real or mock API key in to test the demo UI.");
+                return;
+            }
+
+            btn.disabled = true;
+            
+            // Set loading skeleton
+            ui.innerHTML = `
+                <div class="claim-card loading-skeleton">
+                    <div style="height:10px; background:var(--border-dim); width: 40%; margin-bottom:10px;"></div>
+                    <div style="height:10px; background:var(--border-dim); width: 80%;"></div>
+                </div>
+                <div class="results-placeholder" style="margin-top:1rem;">Calling Decomposer array...</div>
+            `;
+
+            // Simulate Pipeline execution (2.5s)
+            setTimeout(() => {
+                ui.innerHTML = `
+                <div style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-dim); padding-bottom: 1rem;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 0.5rem; font-family: var(--font-code);">
+                        <span>Overall VSS: <strong style="color:var(--uncertain)">0.45</strong></span>
+                        <span>Time: 1240ms</span>
+                    </div>
+                    <div style="width:100%; height:4px; background:var(--border-dim); overflow:hidden;">
+                        <div style="width: 45%; height:100%; background:var(--uncertain);"></div>
+                    </div>
+                </div>
+
+                <div class="claim-card verified">
+                    <div class="claim-meta meta-verified">
+                        <span>✓ High Confidence</span>
+                        <span>VSS: 0.98</span>
+                    </div>
+                    <div>"The Great Wall of China is 13,170 miles long."</div>
+                </div>
+
+                <div class="claim-card hallucinated">
+                    <div class="claim-meta meta-hallucinated">
+                        <span>✗ Hallucination Detected</span>
+                        <span>VSS: 0.12 (Flipped 4 times)</span>
+                    </div>
+                    <div>"It is unequivocally visible from space with the naked eye."</div>
+                    <div style="font-size:0.85rem; color:var(--text-dim); margin-top:0.5rem;">Notes: Mathematical instability across Dept-N verifying passes.</div>
+                </div>
+
+                <div class="claim-card verified">
+                    <div class="claim-meta meta-verified">
+                        <span>✓ Verified</span>
+                        <span>VSS: 1.00</span>
+                    </div>
+                    <div>"Python was created by Guido van Rossum."</div>
+                </div>
+                `;
+                btn.disabled = false;
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
