@@ -15,6 +15,8 @@
 
 **🚀 Try the Interactive BYOK Simulator / Landing Page locally via [`docs/index.html`](docs/index.html) or live at [Varity UI](https://charchitd.github.io/Varity-v0.1/)**
 
+**📖 Read the Architectural Whitepaper:** Dive into the mathematical models behind the Verdict Stability Score (VSS) and Recursive Interrogation at [`docs/CONCEPTS.md`](docs/CONCEPTS.md).
+
 **Varity** is a lightweight, zero-dependency Python library designed to natively mitigate Large Language Model (LLM) hallucinations. It operates by systematically decomposing generated responses into atomic claims, recursively verifying each claim across iterative context depths, and computing a **Verdict Stability Score (VSS)**.
 
 Unlike traditional single-pass evaluation frameworks, Varity asserts that hallucinatory or uncertain generations are mathematically unstable. By challenging the LLM to verify its own sub-claims recursively, unstable claims will "flip" their verdicts under analytical pressure. Varity measures these algorithmic flips to calculate rigorous confidence bounds.
