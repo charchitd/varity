@@ -1,8 +1,13 @@
-# Varity — Recursive Self-Checking for LLM Hallucination Reduction
-
-[![PyPI - Version](https://img.shields.io/pypi/v/varity.svg)](https://pypi.org/project/varity/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/varity.svg)](https://pypi.org/project/varity/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+<div align="center">
+  <h1>Varity v0.1</h1>
+  <p><em>Recursive Self-Checking for LLM Hallucination Reduction</em></p>
+  
+  [![PyPI - Version](https://img.shields.io/pypi/v/varity.svg)](https://pypi.org/project/varity/)
+  [![Python Versions](https://img.shields.io/pypi/pyversions/varity.svg)](https://pypi.org/project/varity/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+  [![Type Checked](https://img.shields.io/badge/mypy-strict-success.svg)](#)
+  [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](#)
+</div>
 
 ---
 
