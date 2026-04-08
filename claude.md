@@ -75,6 +75,12 @@ python -m varity.cli demo         # CLI demo
 - Integration tests in tests/integration/, gated on VARITY_API_KEY env var
 - CLI uses ANSI codes for color — no rich/click deps
 
+## Commercial Strategy / Wrappers
+Because Varity is a deterministic, localized verification loop, the primary monetization and expansion strategy revolves around building AI Wrappers that guarantee factuality. Future development should prioritize these use cases:
+1. **Zero-Hallucination Legal/Medical Writers:** Wrappers that drop user-facing content unless VSS > 0.70.
+2. **Academic & SEO Fact-Checkers:** Browser extensions that instantly red-line unverified generations.
+3. **Enterprise Middleware:** API proxy that catches hallucinations before they reach the enterprise backend.
+
 ## Testing
 - Mock providers for unit tests, real calls for integration
 - Target: 40+ tests before v0.1
