@@ -155,35 +155,26 @@ jobs:
 
 ## How It Works
 
-Varity executes a deterministic five-stage pipeline:
+## Core Architecture
 
+Varity governs a strict 5-stage deterministic evaluation flow:
+
+```mermaid
+graph TD;
+    A[Raw Response Payload] --> B[1. Claim Decomposer]
+    B --> C[2. Recursive Self-Verifier]
+    B --> D[3. Independent Cross-Check]
+    C --> E[4. Confidence Aggregator]
+    D --> E
+    E --> F[5. Correction Generator]
+    F --> G[Validated Output Structure]
 ```
-Input Text
-    │
-    ▼
-┌──────────────────────┐
-│  1. Claim Decomposer │  Splits text into atomic Claim objects
-└──────────┬───────────┘
-           │
-    ┌──────┴──────┐
-    ▼             ▼
-┌────────┐  ┌───────────┐
-│2. Self │  │3. Cross   │  Independent verification paths
-│Verifier│  │  Checker  │
-└───┬────┘  └─────┬─────┘
-    │             │
-    └──────┬──────┘
-           ▼
-┌──────────────────────┐
-│ 4. Confidence        │  Bayesian scoring + VSS calculation
-│    Aggregator        │  (counts verdict flips across depths)
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ 5. Correction        │  Rewrites text removing flagged claims
-│    Generator         │  (only when flagged_claims > 0)
-└──────────────────────┘
+
+1. **Claim Decomposition**: Segments cohesive text strings into isolated, atomic `Claim` schema nodes.
+2. **Recursive Self-Verification**: Executes isolated iterative passes across isolated claims (Depth 0...N), dynamically tracking historical verdict variance.
+3. **Cross-Checking**: Instantiates an identical external process verifying the claim devoid of the initial contextual bias.
+4. **Confidence Aggregator**: Maps the volume of boolean "flips" and base metric alignments to construct the total `vss_score`.
+5. **Correction Generation**: Automatically rebuilds text omitting nodes scored beneath the rigorous confidence threshold.
 ```
 
 **Verdict Stability Score (VSS):** For each claim, Varity counts how many times the
