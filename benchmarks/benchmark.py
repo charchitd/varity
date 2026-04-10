@@ -1,10 +1,11 @@
 """Varity benchmark runner.
 
-Measures end-to-end latency, token usage, and hallucination detection rate
-across a set of test responses with known ground truth.
+Runs the shared dataset against a single provider and writes JSON results.
 
 Usage:
     python benchmarks/benchmark.py --provider gemini --key AIzaSy... [--depth 1]
+    python benchmarks/benchmark.py --provider anthropic --key sk-ant-...
+    python benchmarks/benchmark.py --provider openai --key sk-...
 """
 
 from __future__ import annotations
@@ -14,86 +15,7 @@ import asyncio
 import json
 import sys
 import time
-from typing import Any
 
-# ---------------------------------------------------------------------------
-# Benchmark dataset — responses with known ground truth labels
-# ---------------------------------------------------------------------------
-
-BENCHMARK_CASES: list[dict[str, Any]] = [
-    {
-        "id": "b01",
-        "response": "Python was created by Guido van Rossum and first released in 1991.",
-        "expected_flagged": 0,
-        "notes": "Fully correct — no claims should be flagged.",
-    },
-    {
-        "id": "b02",
-        "response": (
-            "The Great Wall of China is clearly visible from space with the naked eye. "
-            "It was built entirely during the Ming Dynasty."
-        ),
-        "expected_flagged": 1,
-        "notes": "Space visibility myth should be flagged; Ming Dynasty partial truth.",
-    },
-    {
-        "id": "b03",
-        "response": (
-            "Water boils at 100°C at standard atmospheric pressure. "
-            "The speed of light is approximately 299,792 km/s. "
-            "Einstein published his general theory of relativity in 1915."
-        ),
-        "expected_flagged": 0,
-        "notes": "All three claims are correct.",
-    },
-    {
-        "id": "b04",
-        "response": (
-            "Shakespeare was born in 1564 in Stratford-upon-Avon. "
-            "He wrote exactly 40 plays and 200 sonnets."
-        ),
-        "expected_flagged": 1,
-        "notes": "Birth date/place correct; play/sonnet counts are wrong (37 plays, 154 sonnets).",
-    },
-    {
-        "id": "b05",
-        "response": (
-            "The Amazon River is the longest river in the world. "
-            "The Nile is the second longest."
-        ),
-        "expected_flagged": 1,
-        "notes": "The Nile is generally considered longest; Amazon is debated.",
-    },
-    {
-        "id": "b06",
-        "response": "Mount Everest is the tallest mountain on Earth at 8,849 metres.",
-        "expected_flagged": 0,
-        "notes": "Correct height (2020 survey).",
-    },
-    {
-        "id": "b07",
-        "response": (
-            "Penicillin was discovered by Alexander Fleming in 1928. "
-            "It was the first antibiotic ever used in humans in 1942."
-        ),
-        "expected_flagged": 0,
-        "notes": "Both claims broadly correct.",
-    },
-    {
-        "id": "b08",
-        "response": (
-            "The human body has 206 bones in adulthood. "
-            "Babies are born with approximately 270 bones."
-        ),
-        "expected_flagged": 0,
-        "notes": "Both anatomical facts are correct.",
-    },
-]
-
-
-# ---------------------------------------------------------------------------
-# Runner
-# ---------------------------------------------------------------------------
 
 async def run_benchmark(
     provider_name: str,
@@ -101,9 +23,18 @@ async def run_benchmark(
     model: str | None,
     depth: int,
     output_path: str | None,
+    delay: float = 0.0,
 ) -> None:
+    import importlib.util, os
     from varity import Varity, VarityConfig
     from varity.providers import get_provider
+
+    # Load dataset from the same directory as this script
+    _ds_path = os.path.join(os.path.dirname(__file__), "dataset.py")
+    _spec = importlib.util.spec_from_file_location("dataset", _ds_path)
+    _mod = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
+    _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
+    BENCHMARK_CASES = _mod.BENCHMARK_CASES
 
     kwargs: dict[str, object] = {}
     if model:
@@ -114,16 +45,22 @@ async def run_benchmark(
     varity = Varity(provider=provider, config=config)
 
     results = []
-    total_flagged_correct = 0
-    total_cases = len(BENCHMARK_CASES)
+    correct = 0
+    total = len(BENCHMARK_CASES)
     total_latency_ms = 0
     total_tokens = 0
 
-    print(f"\nVarity Benchmark  |  provider={provider_name}  depth={depth}")
-    print("=" * 70)
+    tier_stats: dict[str, dict[str, int]] = {}
+
+    print(f"\n{'='*72}")
+    print(f"  Varity Benchmark  |  provider={provider_name}  depth={depth}")
+    print(f"{'='*72}")
 
     try:
-        for case in BENCHMARK_CASES:
+        for i, case in enumerate(BENCHMARK_CASES):
+            if i > 0 and delay > 0:
+                print(f"  ... waiting {delay:.0f}s before next case ...")
+                await asyncio.sleep(delay)
             t0 = time.monotonic()
             try:
                 result = await varity.acheck(case["response"])
@@ -135,22 +72,31 @@ async def run_benchmark(
                     or (expected > 0 and actual_flagged > 0)
                 )
                 if detection_ok:
-                    total_flagged_correct += 1
+                    correct += 1
+
+                tier = case.get("tier", "UNKNOWN")
+                if tier not in tier_stats:
+                    tier_stats[tier] = {"correct": 0, "total": 0}
+                tier_stats[tier]["total"] += 1
+                if detection_ok:
+                    tier_stats[tier]["correct"] += 1
 
                 tok = result.token_usage.get("total_tokens", 0)
                 total_latency_ms += elapsed
                 total_tokens += tok
 
                 status = "PASS" if detection_ok else "FAIL"
+                label = "+" if detection_ok else "x"
                 print(
-                    f"  [{case['id']}] {status}  "
+                    f"  [{label}] [{case['id']}:{tier:<8}] {status}  "
                     f"conf={result.overall_confidence:.2f}  "
                     f"vss={result.vss_score:.2f}  "
                     f"flagged={actual_flagged}(exp={expected})  "
-                    f"{elapsed}ms  ~{tok}tok"
+                    f"{elapsed}ms"
                 )
                 results.append({
                     "id": case["id"],
+                    "tier": tier,
                     "status": status,
                     "overall_confidence": result.overall_confidence,
                     "vss_score": result.vss_score,
@@ -162,43 +108,58 @@ async def run_benchmark(
                 })
             except Exception as exc:
                 elapsed = int((time.monotonic() - t0) * 1000)
-                print(f"  [{case['id']}] ERROR  {exc}  {elapsed}ms")
+                print(f"  [!] [{case['id']}] ERROR  {exc}  {elapsed}ms")
                 results.append({"id": case["id"], "status": "ERROR", "error": str(exc)})
     finally:
         await provider.close()
 
     # Summary
-    accuracy = total_flagged_correct / total_cases * 100
-    avg_latency = total_latency_ms / total_cases if total_cases else 0
-    avg_tokens = total_tokens / total_cases if total_cases else 0
+    accuracy = correct / total * 100
+    avg_latency = total_latency_ms / total if total else 0
+    avg_tokens = total_tokens / total if total else 0
 
-    print("=" * 70)
-    print(f"  Detection accuracy : {accuracy:.1f}%  ({total_flagged_correct}/{total_cases})")
-    print(f"  Avg latency        : {avg_latency:.0f} ms")
-    print(f"  Avg tokens (est.)  : {avg_tokens:.0f}")
+    print(f"\n{'='*72}")
+    print(f"  Overall detection accuracy : {accuracy:.1f}%  ({correct}/{total})")
+    print(f"  Avg latency per check      : {avg_latency:.0f} ms")
+    print(f"  Avg token usage (est.)     : {avg_tokens:.0f}")
     print()
+    print("  Per-tier breakdown:")
+    for tier, stats in sorted(tier_stats.items()):
+        t_acc = stats["correct"] / stats["total"] * 100
+        print(f"    {tier:<10}  {t_acc:.0f}%  ({stats['correct']}/{stats['total']})")
+    print(f"{'='*72}\n")
 
     if output_path:
         summary = {
             "provider": provider_name,
+            "model": model or "default",
             "depth": depth,
             "accuracy_pct": round(accuracy, 1),
             "avg_latency_ms": round(avg_latency),
             "avg_tokens": round(avg_tokens),
+            "tier_accuracy": {
+                t: {
+                    "accuracy_pct": round(s["correct"] / s["total"] * 100, 1),
+                    "correct": s["correct"],
+                    "total": s["total"],
+                }
+                for t, s in tier_stats.items()
+            },
             "cases": results,
         }
         with open(output_path, "w", encoding="utf-8") as fh:
             json.dump(summary, fh, indent=2)
-        print(f"Results written to {output_path}")
+        print(f"  Results saved → {output_path}\n")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Varity benchmark runner")
-    parser.add_argument("--provider", default="anthropic", help="Provider name")
-    parser.add_argument("--key", required=True, help="API key")
-    parser.add_argument("--model", default=None, help="Override default model")
+    parser.add_argument("--provider", default="gemini", help="Provider name (gemini/anthropic/openai)")
+    parser.add_argument("--key", required=True, help="API key for the provider")
+    parser.add_argument("--model", default=None, help="Override default model name")
     parser.add_argument("--depth", type=int, default=1, help="Verification depth (default: 1)")
-    parser.add_argument("--output", default=None, help="Write JSON results to this file")
+    parser.add_argument("--output", default=None, help="Write results JSON to this path")
+    parser.add_argument("--delay", type=float, default=5.0, help="Seconds to wait between cases (default: 5)")
     args = parser.parse_args()
 
     asyncio.run(
@@ -208,6 +169,7 @@ def main() -> None:
             model=args.model,
             depth=args.depth,
             output_path=args.output,
+            delay=args.delay,
         )
     )
     sys.exit(0)
