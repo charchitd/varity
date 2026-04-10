@@ -12,7 +12,7 @@
 </div>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/charchitd/Varity-v0.1/main/docs/assets/ui-flag.png" alt="Varity Interactive Simulator Interface Layout" width="100%">
+  <img src="docs/assets/ui-flag.png" alt="Varity Interactive Simulator Interface Layout" width="100%">
 </div>
 
 ---
