@@ -5,6 +5,7 @@
   [![PyPI - Version](https://img.shields.io/pypi/v/varity.svg)](https://pypi.org/project/varity/)
   [![Python Versions](https://img.shields.io/pypi/pyversions/varity.svg)](https://pypi.org/project/varity/)
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+  [![CI](https://github.com/charchitd/Varity-v0.1/actions/workflows/ci.yml/badge.svg)](https://github.com/charchitd/Varity-v0.1/actions/workflows/ci.yml)
   [![Landing Page](https://img.shields.io/badge/UI-Interactive_Demo-00e5ff.svg)](https://charchitd.github.io/Varity-v0.1/)
   [![Type Checked](https://img.shields.io/badge/mypy-strict-success.svg)](#)
   [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](#)
