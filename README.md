@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Varity v0.1</h1>
+  <h1>Varity v0.1.2</h1>
   <p><em>Recursive Self-Checking for LLM Hallucination Reduction</em></p>
   
   [![PyPI - Version](https://img.shields.io/pypi/v/varity.svg)](https://pypi.org/project/varity/)
@@ -12,7 +12,7 @@
 </div>
 
 <div align="center">
-  <img src="docs/assets/ui-flag.png" alt="Varity Interactive Simulator Interface Layout" width="100%">
+  <img src="https://raw.githubusercontent.com/charchitd/varity/main/docs/assets/ui-flag.png" alt="Varity Interactive Simulator Interface Layout" width="100%">
 </div>
 
 ---
@@ -169,15 +169,38 @@ jobs:
 
 Varity governs a strict 5-stage deterministic evaluation flow:
 
-```mermaid
-graph TD;
-    A[Raw Response Payload] --> B[1. Claim Decomposer]
-    B --> C[2. Recursive Self-Verifier]
-    B --> D[3. Independent Cross-Check]
-    C --> E[4. Confidence Aggregator]
-    D --> E
-    E --> F[5. Correction Generator]
-    F --> G[Validated Output Structure]
+```text
+  ┌──────────────────────┐
+  │  Raw Response Payload │
+  └──────────┬───────────┘
+             │
+             ▼
+  ┌──────────────────────┐
+  │  1. Claim Decomposer │
+  └─────┬──────────┬─────┘
+        │          │
+        ▼          ▼
+  ┌───────────┐ ┌─────────────────────┐
+  │ 2. Recur- │ │ 3. Independent      │
+  │    sive   │ │    Cross-Check      │
+  │  Self-    │ └─────────┬───────────┘
+  │  Verifier │           │
+  └─────┬─────┘           │
+        │                 │
+        ▼                 ▼
+  ┌──────────────────────────┐
+  │ 4. Confidence Aggregator │
+  └──────────┬───────────────┘
+             │
+             ▼
+  ┌──────────────────────────┐
+  │ 5. Correction Generator  │
+  └──────────┬───────────────┘
+             │
+             ▼
+  ┌──────────────────────────┐
+  │ Validated Output Struct  │
+  └──────────────────────────┘
 ```
 
 1. **Claim Decomposition**: Segments cohesive text strings into isolated, atomic `Claim` schema nodes.
@@ -185,7 +208,6 @@ graph TD;
 3. **Cross-Checking**: Instantiates an identical external process verifying the claim devoid of the initial contextual bias.
 4. **Confidence Aggregator**: Maps the volume of boolean "flips" and base metric alignments to construct the total `vss_score`.
 5. **Correction Generation**: Automatically rebuilds text omitting nodes scored beneath the rigorous confidence threshold.
-```
 
 **Verdict Stability Score (VSS):** For each claim, Varity counts how many times the
 verdict flipped between `supported` and `contradicted` across recursive depths.
@@ -193,7 +215,6 @@ A claim verified as `supported` at every depth receives VSS = 1.0. A claim that
 flips on every pass approaches VSS = 0.0. Claims below the configured
 `confidence_threshold` are flagged and eligible for automatic correction.
 
-```
 ## Configuration Reference
 
 `VarityConfig` accepts the following parameters:
