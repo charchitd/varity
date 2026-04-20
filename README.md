@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Varity v0.1.10</h1>
+  <h1>Varity v0.1.11</h1>
   <p><em>Recursive Self-Checking for LLM Hallucination Reduction</em></p>
   
   [![PyPI - Version](https://img.shields.io/pypi/v/varity.svg)](https://pypi.org/project/varity/)
@@ -268,6 +268,25 @@ General LLMs are dangerous in high-stakes fields because they can invent case st
 
 ### 2. Academic & SEO Fact-Checking Automation
 Content teams and researchers spend countless hours manually fact-checking AI outputs. Varity can be wrapped into a Chrome Extension or text-editor plugin where users highlight generated text and instantly receive a boolean breakdown of Verified vs. Hallucinated claims, drastically reducing manual audit times.
+
+## Literature & Academic Context
+
+The mathematical and theoretical foundation of Varity addresses a critical gap identified across recent LLM alignment and self-reflection literature:
+
+### 1. The Hallucination Gap
+Modern LLMs are prone to generating highly plausible but factually incorrect statements (hallucinations) because they prioritize statistical token likelihood over factual grounding. Traditional mitigation strategies like Retrieval-Augmented Generation (RAG) suffer when external data is stale or unavailable.
+* *Reference: "A Survey of Hallucination in Large Foundation Models" (Ji et al., 2023)*
+
+### 2. Self-Reflection and Iterative Refinement
+Recent studies demonstrate that LLMs possess latent capabilities to critique and refine their own outputs when forced into iterative feedback loops. However, prior work mostly relied on single-pass heuristic prompting rather than algorithmic scoring. Varity operationalizes this via **Recursive Verification (Depth N)**.
+* *Reference: "Self-Refine: Iterative Refinement with Self-Feedback" (Madaan et al., 2023)*
+
+### 3. Stability as a Proxy for Truth
+The core algorithmic thesis of Varity—the **Verdict Stability Score (VSS)**—is heavily inspired by research showing that hallucinatory claims are mathematically unstable under temperature variance and cross-examination, whereas true facts remain structurally consistent.
+* *Reference: "SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models" (Manakul et al., 2023)*
+* *Reference: "Chain-of-Verification Reduces Hallucination in Large Language Models" (Dhuliawala et al., 2023)*
+
+By combining atomic extraction (Claim Decomposition) with iterative internal probing (VSS), Varity transforms these academic concepts into a deployable, zero-dependency engineering framework.
 
 ## Stress Testing
 
