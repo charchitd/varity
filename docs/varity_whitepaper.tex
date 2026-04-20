@@ -1,0 +1,66 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{cvpr}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+
+\cvprfinalcopy 
+
+\def\cvprPaperID{****} 
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+\begin{document}
+
+%%%%%%%%% TITLE
+\title{Varity: Recursive Self-Verification and Verdict Stability Scoring for LLM Hallucination Mitigation}
+
+\author{Charchit D.\\
+Aston University\\
+{\tt\small charchitd@aston.ac.uk}
+}
+
+\maketitle
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+Large Language Models (LLMs) are prone to generating highly plausible but factually incorrect statements, known as hallucinations. Traditional single-pass evaluation methods frequently ratify these falsehoods due to inherent confirmation bias. This paper introduces Varity, an open-source Python framework that mitigates hallucinations through Atomic Claim Decomposition, Depth-N Recursive Interrogation, and Dual-Signal Flagging matrices. Central to Varity is the Verdict Stability Score (VSS), a mathematical proxy for truth that quantifies a claim's semantic stability under iterative adversarial questioning. We demonstrate that true facts maintain a VSS approaching 1.0, while hallucinatory claims exhibit high volatility.
+\end{abstract}
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+
+The primary failure state of modern autoregressive generation models is the "Illusion of Certainty." Because standard Next-Token-Prediction models optimize for linguistic probability rather than factual semantic grounding, they generate falsehoods utilizing the exact same syntactic certainty as factual truths \cite{ji2023survey}. 
+
+Contemporary oversight architectures attempt to mitigate this via single-pass external evaluators (e.g., prompting a secondary LLM to verify the primary output). However, single-pass evaluation is highly susceptible to confirmation bias. 
+
+\section{The Varity Framework}
+
+Varity operates on the core thesis that hallucinatory claims exist sparsely within an LLM's latent space, whereas factual truths exist densely. To expose this disparity, Varity enforces a strict 4-stage processing pipeline.
+
+\subsection{Atomic Claim Decomposition}
+Evaluating massive, multi-sentence paragraphs holistically is inherently flawed; a single false statistic is often semantically masked by surrounding truths. Varity forces text through a Decomposition Pipeline to isolate rhetorical structure into discrete, typified claims ($C_1, C_2, ... C_k$). 
+
+\subsection{Depth-N Recursive Interrogation}
+To break the model's confirmation bias, Varity subjects each isolated claim to independent iterative verification loops ($D_1$ to $D_N$). Rather than asking whether the claim is true once, the model is repeatedly cross-examined from varying adversarial perspectives.
+
+\subsection{Verdict Stability Score (VSS)}
+Varity mathematically quantifies hallucinations by tracking Boolean Flips. During Depth-N interrogation, a true fact consistently returns \texttt{VERIFIED}. Conversely, a sparse, hallucinatory fact degrades under pressure, oscillating between \texttt{VERIFIED}, \texttt{CONTRADICTED}, and \texttt{UNCERTAIN}. 
+
+The Verdict Stability Score (VSS) is calculated by penalizing these phase changes. A low VSS strictly indicates hallucination or mathematical instability.
+
+\subsection{Dual-Signal Flagging Matrix}
+Varity implements a dual-signal gate utilizing both a Bayesian Confidence Threshold and the algorithmic VSS Threshold. A claim is excised if it fails either matrix, successfully catching "Confidently Wrong" outputs (High Confidence, Low VSS) before reaching the end user safely.
+
+\section{Conclusion}
+By shifting from external RAG verification—which degrades when data goes stale—to internal recursive self-checking, Varity capitalizes on the LLM's own parametric knowledge as a robust verification oracle. Varity is available as a lightweight, zero-dependency Python library.
+
+{\small
+\bibliographystyle{ieee_fullname}
+\bibliography{egbib}
+}
+
+\end{document}

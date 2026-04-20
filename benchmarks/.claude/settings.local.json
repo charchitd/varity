@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where pandoc:*)",
+      "Bash(python md_to_docx.py)"
+    ]
+  }
+}
