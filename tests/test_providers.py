@@ -43,6 +43,7 @@ def _fake_response(status_code: int, body: dict[str, Any]) -> MagicMock:
     resp.status_code = status_code
     resp.json.return_value = body
     resp.text = json.dumps(body)
+    resp.headers = httpx.Headers()
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
         resp.raise_for_status.side_effect = httpx.HTTPStatusError(
