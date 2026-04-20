@@ -41,6 +41,12 @@ A hallucination? It cracks under pressure. Round 1 says `VERIFIED`. Round 2 says
 
 Varity tracks these "algorithmic flips" and calculates the **Verdict Stability Score (VSS)**. If the VSS is low, it’s a hallucination. Period. We automatically strip it from the text and hand you back a clean, corrected response.
 
+## The Academic Foundation
+
+This methodology isn't just a clever hack; it bridges a massive gap in current AI research. Work by Manakul et al. and Dhuliawala et al. (2023) originally proved that LLMs possess latent self-critique capabilities. More recently, Araujo et al. (arXiv:2512.12775) demonstrated that fragile hallucinations intrinsically degrade under extended context lengths.
+
+Varity simply packages these theoretical limits into a deployable math equation.
+
 ## Zero Dependencies, Instant Integration
 
 The worst part of modern AI tools is the bloatware. Varity is built strictly against the trend of 400MB dependencies. 
