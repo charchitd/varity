@@ -9,6 +9,7 @@
   [![Landing Page](https://img.shields.io/badge/UI-Interactive_Demo-00e5ff.svg)](https://charchitd.github.io/Varity-v0.1/)
   [![Type Checked](https://img.shields.io/badge/mypy-strict-success.svg)](#)
   [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](#)
+  [![PyPI Downloads](https://static.pepy.tech/personalized-badge/varity?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=DOWNLOADS)](https://pepy.tech/projects/varity)
 </div>
 
 <div align="center">
